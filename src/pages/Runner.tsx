@@ -26,6 +26,10 @@ function QuestionView({
   const stemRef = useRef<HTMLDivElement>(null)
   const [overflow, setOverflow] = useState(false)
   const [readOpen, setReadOpen] = useState(false)
+  const [explOpen, setExplOpen] = useState(false)
+  useEffect(() => {
+    setExplOpen(false)
+  }, [q.id])
   useEffect(() => {
     const el = stemRef.current
     if (!el) return
@@ -48,13 +52,19 @@ function QuestionView({
         <Badge tone={q.domain}>{t(q.domain)}</Badge>
         <span>{q.source}</span>
         {q.type === 'multiple' && <Badge tone="warn">multiple</Badge>}
+        {showFeedback && answered && (
+          <button onClick={() => setExplOpen(true)} className={`feedback flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition hover:brightness-95 ${answered.correct ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad'}`} title={t('explanation')}>
+            {answered.correct ? Icons.check('h-4 w-4') : Icons.x('h-4 w-4')} {answered.correct ? t('correct') : t('wrong')}
+            <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-extrabold">i</span>
+          </button>
+        )}
         <button onClick={onBookmark} className={`ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${bookmarked ? 'bg-warn-soft text-warn' : 'text-muted hover:bg-surface-2 hover:text-ink'}`}>
           {Icons.star(undefined, bookmarked)} {bookmarked ? t('bookmarked') : t('bookmark')}
         </button>
       </div>
       {/* fixed-height stem: long case studies scroll inside, or open in a modal */}
       <div className="relative">
-        <div ref={stemRef} className="stem-box max-h-48 overflow-y-auto pr-2 sm:max-h-56">
+        <div ref={stemRef} className="stem-box max-h-40 overflow-y-auto pr-2 sm:max-h-48">
           <Stem text={body} className="text-[15px] leading-relaxed sm:text-base" />
           {q.image && <img src={q.image} alt="" className="my-3 max-h-80 w-auto rounded-xl border border-line" />}
         </div>
@@ -101,19 +111,26 @@ function QuestionView({
         })}
       </div>
 
-      {showFeedback && answered && (
-        <div className={`feedback mt-4 rounded-2xl p-4 text-sm ${answered.correct ? 'bg-ok-soft' : 'bg-bad-soft'}`}>
-          <div className={`mb-1.5 flex items-center gap-1.5 font-bold ${answered.correct ? 'text-ok' : 'text-bad'}`}>
-            {answered.correct ? Icons.check() : Icons.x()} {answered.correct ? t('correct') : t('wrong')}
+      <Modal open={explOpen && !!answered} onClose={() => setExplOpen(false)} title={answered?.correct ? t('correct') : t('wrong')}>
+        {answered && (
+          <div className="space-y-3 text-sm">
+            <div className={`rounded-xl p-3 ${answered.correct ? 'bg-ok-soft' : 'bg-bad-soft'}`}>
+              <div className="text-xs font-medium text-muted">{t('correctAnswer')}</div>
+              {q.options.filter((o) => o.correct).map((o) => (
+                <div key={o.label} className="mt-1 font-semibold">
+                  {o.label}. {o.text}
+                </div>
+              ))}
+            </div>
+            {q.explanation && (
+              <p className="leading-relaxed">
+                <span className="font-semibold">{t('explanation')}: </span>
+                {q.explanation}
+              </p>
+            )}
           </div>
-          {q.explanation && (
-            <p className="text-ink/90">
-              <span className="font-medium">{t('explanation')}: </span>
-              {q.explanation}
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </Modal>
     </>
   )
 }
@@ -251,9 +268,11 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
         ))}
       </div>
 
-      <div className="card relative overflow-hidden p-5 sm:p-7">
-        <div className={`absolute inset-y-0 left-0 w-1.5 ${q.domain === 'people' ? 'bg-people' : q.domain === 'process' ? 'bg-process' : 'bg-business'}`} />
+      <div className="card relative flex h-[min(620px,calc(100dvh-230px))] min-h-[420px] flex-col overflow-hidden">
+        <div className={`absolute inset-y-0 left-0 z-10 w-1.5 ${q.domain === 'people' ? 'bg-people' : q.domain === 'process' ? 'bg-process' : 'bg-business'}`} />
+        <div className="stem-box min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
         <QuestionView q={q} selected={selected} answered={answered} showFeedback={showFeedback} onPick={pickFor(q, selected, setSelected)} bookmarked={data.bookmarks.includes(q.id)} onBookmark={toggleBookmark(q)} />
+        </div>
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-2">

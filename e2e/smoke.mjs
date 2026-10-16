@@ -27,9 +27,9 @@ let correct = 0
 for (let i = 0; i < 5; i++) {
   await page.locator('button:has(span:text-is("A"))').first().click()
   await page.getByRole('button', { name: 'Ответить', exact: true }).click()
-  await page.locator('text=/Верно|Неверно/').first().waitFor()
+  await page.locator('button:has-text("Верно"), button:has-text("Неверно")').first().waitFor()
   if (i === 0) await shot('3-feedback')
-  if (await page.getByText('Верно', { exact: true }).count()) correct++
+  if (await page.locator('button:has-text("Верно"):not(:has-text("Неверно"))').count()) correct++
   if (i < 4) await page.getByRole('button', { name: /Далее/ }).click()
 }
 await page.getByRole('button', { name: 'Завершить', exact: true }).first().click()
