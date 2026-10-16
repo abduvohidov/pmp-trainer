@@ -12,8 +12,8 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const shot = (n) => shots && page.screenshot({ path: `${shots}/${n}.png`, fullPage: false })
 
 await page.goto(base)
-await page.getByPlaceholder('Ваше имя').fill('Тест')
-await page.getByRole('button', { name: /Продолжить без входа/ }).click()
+await page.getByPlaceholder('Ваше имя').first().fill('Тест')
+await page.getByRole('button', { name: /Продолжить без входа/ }).first().click()
 await page.getByText(/Практика/).first().waitFor()
 await shot('1-dashboard')
 
