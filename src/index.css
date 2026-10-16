@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #f3f5f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #eaeef5;
+  --color-ink: #15213a;
+  --color-muted: #66718a;
+  --color-line: #dde3ee;
+  --color-accent: #2f6bff;
+  --color-accent-2: #7c5cff;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #e6eeff;
+  --color-navy: #0e1b2e;
+  --color-navy-2: #16294a;
+  --color-navy-ink: #eef2fb;
+  --color-navy-muted: #8fa0c2;
+  --color-people: #ff7a59;
+  --color-process: #2f6bff;
+  --color-business: #19b5a5;
+  --color-ok: #1db871;
+  --color-ok-soft: #e3f8ee;
+  --color-bad: #e5484d;
+  --color-bad-soft: #fdeaea;
+  --color-warn: #e8961e;
+  --color-warn-soft: #fff3df;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --shadow-card: 0 1px 2px rgba(21, 33, 58, 0.04), 0 8px 24px -12px rgba(21, 33, 58, 0.18);
+  --shadow-pop: 0 12px 40px -12px rgba(47, 107, 255, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #0b1220;
+    --color-surface: #141c2e;
+    --color-surface-2: #1c2639;
+    --color-ink: #e8edf8;
+    --color-muted: #93a0bb;
+    --color-line: #263146;
+    --color-accent: #5b8cff;
+    --color-accent-2: #9b84ff;
+    --color-accent-ink: #0b1220;
+    --color-accent-soft: #1b2a4d;
+    --color-navy: #101a2d;
+    --color-navy-2: #182642;
+    --color-ok: #34d399;
+    --color-ok-soft: #113126;
+    --color-bad: #f87171;
+    --color-bad-soft: #3a1b1d;
+    --color-warn: #fbbf24;
+    --color-warn-soft: #3a2a0c;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #0b1220;
+  --color-surface: #141c2e;
+  --color-surface-2: #1c2639;
+  --color-ink: #e8edf8;
+  --color-muted: #93a0bb;
+  --color-line: #263146;
+  --color-accent: #5b8cff;
+  --color-accent-2: #9b84ff;
+  --color-accent-ink: #0b1220;
+  --color-accent-soft: #1b2a4d;
+  --color-navy: #101a2d;
+  --color-navy-2: #182642;
+  --color-ok: #34d399;
+  --color-ok-soft: #113126;
+  --color-bad: #f87171;
+  --color-bad-soft: #3a1b1d;
+  --color-warn: #fbbf24;
+  --color-warn-soft: #3a2a0c;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+h1,
+h2 {
+  letter-spacing: -0.02em;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-card);
+}
+
+.hero {
+  background:
+    radial-gradient(900px 400px at 85% -20%, rgba(124, 92, 255, 0.45), transparent 60%),
+    radial-gradient(600px 300px at 0% 120%, rgba(25, 181, 165, 0.35), transparent 60%),
+    linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-2) 100%);
+  color: var(--color-navy-ink);
+  border-radius: 1.75rem;
+}
+
+.btn-grad {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-pop);
+}
+.btn-grad:hover {
+  filter: brightness(1.06);
+}
+
+.stem-box {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+.stem p {
+  margin: 0 0 0.65rem;
+}
+.stem table {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0.6rem 0 0.9rem;
+  font-size: 0.9em;
+  width: 100%;
+  max-width: 40rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+.stem th,
+.stem td {
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.4rem 0.65rem;
+  text-align: left;
+}
+.stem tr:last-child td {
+  border-bottom: none;
+}
+.stem th {
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.feedback {
+  animation: pop 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feedback {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
