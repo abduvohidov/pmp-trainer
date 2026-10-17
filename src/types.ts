@@ -20,6 +20,10 @@ export interface Question {
   image: string | null
   needsReview?: boolean
   archived?: boolean
+  /** why each incorrect option is wrong (same order as options; '' for the correct one) */
+  whyWrong?: string[]
+  /** English version of the question text */
+  en?: { stem: string; options: string[]; explanation: string; whyWrong?: string[] }
 }
 
 export type Mode = 'practice' | 'exam' | 'mistakes' | 'review' | 'bookmarks'
@@ -28,6 +32,8 @@ export interface Answer {
   selected: string[] // option labels
   correct: boolean
   at: number
+  /** time spent on the question before answering, ms */
+  ms?: number
 }
 
 export interface Session {
@@ -96,4 +102,15 @@ export interface UserInfo {
   photo?: string
   isAdmin: boolean
   provider: 'google' | 'claude' | 'local'
+}
+
+export interface LeaderEntry {
+  uid: string
+  name: string
+  photo?: string
+  week: string // ISO week key, e.g. 2026-W42
+  answered: number
+  correct: number
+  points: number
+  updatedAt: number
 }

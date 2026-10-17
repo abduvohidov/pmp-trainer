@@ -1,14 +1,44 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { sessionsWord } from '../i18n'
 import { Avatar, Badge, Bar, Button, Stat, toneFor } from '../components/ui'
-import { accuracyBy, accuracyByDomain, dailySeries, overall, pct, readiness, toCSV } from '../logic/engine'
+import { accuracyBy, accuracyByDomain, dailySeries, overall, pct, readiness, toCSV, avgAnswerMs, isoWeek, weeklyStats, PACE_MS } from '../logic/engine'
+import { googleCalendarUrl, icsFile, notificationsSupported, requestNotifications } from '../reminders'
 import { saveFile } from '../download'
-import type { Domain, Session } from '../types'
+import type { Domain, LeaderEntry, Session } from '../types'
 
 export function Profile({ onOpenSession, onHome }: { onOpenSession: (s: Session) => void; onHome: () => void }) {
   const { t, user, data, bank, update, signOut, backend, lang } = useStore()
   const [saved, setSaved] = useState(false)
+  const [leaders, setLeaders] = useState<LeaderEntry[] | null>(null)
+  const [remTime, setRemTime] = useState(() => {
+    try {
+      return localStorage.getItem('pmp.reminderTime') || '20:00'
+    } catch {
+      return '20:00'
+    }
+  })
+  const [notifState, setNotifState] = useState<NotificationPermission | 'unsupported'>(() => (notificationsSupported() ? Notification.permission : 'unsupported'))
+  const avgMs = avgAnswerMs(data)
+  const week = isoWeek()
+  const mine = weeklyStats(data)
+  useEffect(() => {
+    let alive = true
+    backend.loadLeaderboard?.(week).then((l) => alive && setLeaders(l), () => alive && setLeaders([]))
+    return () => {
+      alive = false
+    }
+  }, [backend, week, mine.points])
+  const remTitle = lang === 'ru' ? 'PMP Тренажёр — 10 вопросов' : 'PMP Trainer — 10 questions'
+  const remDetails = lang === 'ru' ? 'Ежедневная тренировка: практика или повторение ошибок.' : 'Daily practice: new questions or mistake review.'
+  const setReminder = (v: string) => {
+    setRemTime(v)
+    try {
+      localStorage.setItem('pmp.reminderTime', v)
+    } catch {
+      /* ignore */
+    }
+  }
   const ov = overall(data)
   const rd = readiness(data)
   const byDomain = accuracyByDomain(bank, data)
@@ -56,7 +86,7 @@ export function Profile({ onOpenSession, onHome }: { onOpenSession: (s: Session)
       {/* summary */}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label={t('answered')} value={ov.total} sub={`${data.sessions.length} ${sessionsWord(lang, data.sessions.length)}`} />
-        <Stat label={t('accuracy')} value={`${pct(ov)}%`} sub={<Bar value={pct(ov)} tone={toneFor(pct(ov), ov.total)} />} />
+        <Stat label={t('accuracy')} value={`${pct(ov)}%`} sub={avgMs ? `${t('avgTime')}: ${Math.round(avgMs / 1000)} ${t('sec')} · ${t('pace')} ${Math.round(PACE_MS / 1000)} ${t('sec')}` : <Bar value={pct(ov)} tone={toneFor(pct(ov), ov.total)} />} />
         <Stat label={t('readiness')} value={rd.avg === null ? '—' : `${rd.avg}%`} sub={rd.avg === null ? t('noExams') : rd.exams.map((e) => Math.round(e) + '%').join(' · ')} />
         <Stat label={t('daysLeft')} value={daysLeft === null ? '—' : daysLeft} sub={data.profile.examDate ?? t('noGoal')} />
       </div>
@@ -165,6 +195,73 @@ export function Profile({ onOpenSession, onHome }: { onOpenSession: (s: Session)
               </div>
             ))}
           {!Object.keys(bySource).length && <p className="text-sm text-muted">—</p>}
+        </section>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {/* leaderboard */}
+        <section className="card p-5">
+          <h2 className="font-bold">{t('leaderboard')}</h2>
+          <p className="mb-3 text-xs text-muted">{t('leaderboardHint')}</p>
+          {leaders === null ? (
+            <p className="text-sm text-muted">{t('loading')}</p>
+          ) : leaders.length === 0 && mine.answered === 0 ? (
+            <p className="text-sm text-muted">{t('noLeaders')}</p>
+          ) : (
+            <ol className="divide-y divide-line text-sm">
+              {(() => {
+                const list = leaders.slice()
+                if (user && mine.answered > 0 && !list.some((l) => l.uid === user.id)) list.push({ uid: user.id, name: user.name, photo: user.photo, week, ...mine, updatedAt: Date.now() })
+                list.sort((a, b) => b.points - a.points)
+                return list.slice(0, 10).map((l, i) => {
+                  const me = l.uid === user?.id
+                  return (
+                    <li key={l.uid} className={`flex items-center gap-3 py-2 ${me ? 'font-semibold' : ''}`}>
+                      <span className={`w-6 text-center tabular-nums ${i < 3 ? 'text-accent' : 'text-muted'}`}>{i + 1}</span>
+                      {l.photo ? <img src={l.photo} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs">{l.name[0]}</span>}
+                      <span className="min-w-0 flex-1 truncate">
+                        {l.name}
+                        {me && <span className="ml-1 text-xs font-normal text-muted">({t('you')})</span>}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {l.correct}/{l.answered}
+                      </span>
+                      <span className="w-16 text-right tabular-nums">
+                        {l.points} <span className="text-xs text-muted">{t('points')}</span>
+                      </span>
+                    </li>
+                  )
+                })
+              })()}
+            </ol>
+          )}
+        </section>
+
+        {/* reminders */}
+        <section className="card p-5">
+          <h2 className="font-bold">{t('reminders')}</h2>
+          <p className="mb-3 text-xs text-muted">{t('remindersHint')}</p>
+          <label className="block text-sm">
+            <div className="mb-1 text-xs font-medium text-muted">{t('reminderTime')}</div>
+            <input type="time" value={remTime} onChange={(e) => setReminder(e.target.value)} className="w-40 rounded-xl border border-line bg-bg px-3 py-2.5 text-sm" />
+          </label>
+          <div className="mt-3 flex flex-col gap-2">
+            <a href={googleCalendarUrl(remTime, remTitle, remDetails)} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold hover:bg-surface-2">
+              {t('addGoogleCal')}
+            </a>
+            <Button variant="ghost" onClick={() => saveFile('pmp-trainer-reminder.ics', icsFile(remTime, remTitle, remDetails), 'text/calendar')}>
+              {t('downloadIcs')}
+            </Button>
+            {notifState !== 'unsupported' && (
+              <Button
+                variant={notifState === 'granted' ? 'soft' : 'ghost'}
+                disabled={notifState !== 'default'}
+                onClick={async () => setNotifState(await requestNotifications())}
+              >
+                {notifState === 'granted' ? t('notifOn') : notifState === 'denied' ? t('notifDenied') : t('enableNotif')}
+              </Button>
+            )}
+          </div>
         </section>
       </div>
 

@@ -4,6 +4,7 @@ import { emptyUserData } from './types'
 import { pickBackend, type Backend } from './storage'
 import bundled from './data/questions.json'
 import { t as tr, type Key, type Lang } from './i18n'
+import { isoWeek, weeklyStats } from './logic/engine'
 
 interface Store {
   backend: Backend
@@ -67,6 +68,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const flush = useCallback(() => {
     if (!user || !dirty.current) return
     dirty.current = false
+    const ws = weeklyStats(dataRef.current)
+    if (backend.saveLeaderboard && ws.answered > 0) {
+      backend
+        .saveLeaderboard({ uid: user.id, name: user.name, ...(user.photo ? { photo: user.photo } : {}), week: isoWeek(), answered: ws.answered, correct: ws.correct, points: ws.points, updatedAt: Date.now() })
+        .catch(() => {})
+    }
     backend.saveUserData(user, dataRef.current).then(
       () => setSaveWarning(null),
       () => {

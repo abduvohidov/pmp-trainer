@@ -1,5 +1,5 @@
 import type { Backend } from './types'
-import type { Question, UserData, UserInfo } from '../types'
+import type { LeaderEntry, Question, UserData, UserInfo } from '../types'
 import { isAdminEmail } from './local'
 
 /**
@@ -90,6 +90,16 @@ export const firebaseBackend: Backend = {
     const snap = await fs.getDoc(fs.doc(db, 'bank', 'questions'))
     if (!snap.exists()) return null
     return JSON.parse(snap.data().json) as Question[]
+  },
+  async loadLeaderboard(week) {
+    const { db, fs } = await load()
+    const q = fs.query(fs.collection(db, 'leaderboard'), fs.where('week', '==', week), fs.orderBy('points', 'desc'), fs.limit(50))
+    const snap = await fs.getDocs(q)
+    return snap.docs.map((d: { data: () => LeaderEntry }) => d.data())
+  },
+  async saveLeaderboard(entry) {
+    const { db, fs } = await load()
+    await fs.setDoc(fs.doc(db, 'leaderboard', entry.uid), entry)
   },
   async saveQuestions(user, qs) {
     const { db, fs } = await load()

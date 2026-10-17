@@ -1,4 +1,6 @@
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { TERMS, termText, type Term } from '../glossary'
+import type { Lang } from '../i18n'
 import type { Domain, UserInfo } from '../types'
 
 export function Button({
@@ -53,8 +55,61 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
   return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c}`}>{children}</span>
 }
 
+/** A glossary term inside question text: dotted underline, definition on hover (title) and on click (popover). */
+function TermChip({ term, text, lang }: { term: Term; text: string; lang: Lang }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [open])
+  return (
+    <span className="relative inline">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+        }}
+        title={termText(term, lang)}
+        className="cursor-help rounded-sm border-b border-dotted border-accent/70 text-inherit hover:bg-accent-soft/60"
+      >
+        {text}
+      </button>
+      {open && (
+        <span onClick={(e) => e.stopPropagation()} className="absolute left-0 top-full z-20 mt-1 block w-72 max-w-[80vw] rounded-xl border border-line bg-surface p-3 text-left text-xs font-normal leading-relaxed text-ink shadow-xl">
+          <span className="mb-1 block font-bold text-accent">{text}</span>
+          {termText(term, lang)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Wrap glossary terms in a plain string. */
+export function RichText({ text, lang }: { text: string; lang: Lang }) {
+  const out: ReactNode[] = []
+  let rest = text
+  let k = 0
+  let guard = 0
+  while (rest.length && guard++ < 200) {
+    let best: { idx: number; len: number; term: Term } | null = null
+    for (const term of TERMS) {
+      const m = term.match.exec(rest)
+      if (m && (best === null || m.index < best.idx || (m.index === best.idx && m[0].length > best.len))) best = { idx: m.index, len: m[0].length, term }
+    }
+    if (!best) break
+    if (best.idx > 0) out.push(<span key={k++}>{rest.slice(0, best.idx)}</span>)
+    out.push(<TermChip key={k++} term={best.term} text={rest.slice(best.idx, best.idx + best.len)} lang={lang} />)
+    rest = rest.slice(best.idx + best.len)
+  }
+  if (rest) out.push(<span key={k++}>{rest}</span>)
+  return <>{out}</>
+}
+
 /** Minimal renderer: paragraphs + pipe tables (used by a few EVM questions). */
-export function Stem({ text, className = '' }: { text: string; className?: string }) {
+export function Stem({ text, className = '', lang = 'ru' }: { text: string; className?: string; lang?: Lang }) {
   const lines = text.split('\n')
   const blocks: ReactNode[] = []
   let i = 0
@@ -91,7 +146,12 @@ export function Stem({ text, className = '' }: { text: string; className?: strin
       )
       continue
     }
-    if (line.trim()) blocks.push(<p key={k++}>{line}</p>)
+    if (line.trim())
+      blocks.push(
+        <p key={k++}>
+          <RichText text={line} lang={lang} />
+        </p>,
+      )
     i++
   }
   return <div className={`stem ${className}`}>{blocks}</div>

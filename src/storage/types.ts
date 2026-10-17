@@ -1,4 +1,4 @@
-import type { Question, UserData, UserInfo } from '../types'
+import type { LeaderEntry, Question, UserData, UserInfo } from '../types'
 
 /**
  * Storage backend abstraction. Three implementations:
@@ -17,4 +17,7 @@ export interface Backend {
   /** Question bank overrides managed by admins; null = use bundled bank. */
   loadQuestions(): Promise<Question[] | null>
   saveQuestions(user: UserInfo, qs: Question[]): Promise<void>
+  /** Weekly leaderboard (optional: local mode returns only the current user). */
+  loadLeaderboard?(week: string): Promise<LeaderEntry[]>
+  saveLeaderboard?(entry: LeaderEntry): Promise<void>
 }

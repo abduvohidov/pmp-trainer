@@ -1,5 +1,5 @@
 import type { Backend } from './types'
-import type { Question, UserData, UserInfo } from '../types'
+import type { LeaderEntry, Question, UserData, UserInfo } from '../types'
 
 const USER_KEY = 'pmp.local.user'
 const DATA_KEY = 'pmp.local.data'
@@ -55,6 +55,13 @@ export const localBackend: Backend = {
   },
   async saveQuestions(_u, qs) {
     write(BANK_KEY, qs)
+  },
+  async loadLeaderboard(week) {
+    const e = read<LeaderEntry>('pmp.local.leader')
+    return e && e.week === week ? [e] : []
+  },
+  async saveLeaderboard(entry) {
+    write('pmp.local.leader', entry)
   },
 }
 

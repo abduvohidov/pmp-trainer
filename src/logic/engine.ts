@@ -115,9 +115,9 @@ function track(data: UserData, s: Session, qid: string, answer: Answer): UserDat
  * answer is locked and tracked immediately; in exam mode it can be changed until
  * submit and is tracked at finish.
  */
-export function recordAnswer(data: UserData, s: Session, q: Question, selected: string[]): { data: UserData; session: Session; answer: Answer } {
+export function recordAnswer(data: UserData, s: Session, q: Question, selected: string[], ms?: number): { data: UserData; session: Session; answer: Answer } {
   const correct = isCorrect(q, selected)
-  const answer: Answer = { selected, correct, at: Date.now() }
+  const answer: Answer = { selected, correct, at: Date.now(), ...(ms !== undefined ? { ms } : {}) }
   const session: Session = { ...s, answers: { ...s.answers, [q.id]: answer } }
   let next: UserData = { ...data, current: session }
   if (s.mode !== 'exam') next = track(next, s, q.id, answer)
@@ -211,4 +211,51 @@ export function toCSV(bank: Question[], data: UserData): string {
     rows.push([new Date(a.at).toISOString(), a.mode, a.qid, q?.domain ?? '', q?.source ?? '', a.correct ? '1' : '0'])
   }
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+}
+
+/** Question text in the UI language (falls back to Russian source). */
+export function localizeQuestion(q: Question, lang: 'ru' | 'en'): { stem: string; options: { label: string; text: string; correct: boolean }[]; explanation: string; whyWrong: string[] } {
+  if (lang === 'en' && q.en) {
+    return {
+      stem: q.en.stem,
+      options: q.options.map((o, i) => ({ label: o.label, text: q.en!.options[i] ?? o.text, correct: o.correct })),
+      explanation: q.en.explanation || q.explanation,
+      whyWrong: q.en.whyWrong ?? q.whyWrong ?? [],
+    }
+  }
+  return { stem: q.stem, options: q.options, explanation: q.explanation, whyWrong: q.whyWrong ?? [] }
+}
+
+/** PMP pace: 180 questions in 230 minutes ≈ 76.7 s per question. */
+export const PACE_MS = Math.round((230 * 60_000) / 180)
+
+export function isoWeek(d = new Date()): string {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = date.getUTCDay() || 7
+  date.setUTCDate(date.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+}
+
+/** This week's stats; points = correct×10 + answered×1 (rewards volume and accuracy). */
+export function weeklyStats(data: UserData, now = new Date()): { answered: number; correct: number; points: number } {
+  const week = isoWeek(now)
+  let answered = 0
+  let correct = 0
+  for (const a of data.attempts) {
+    if (isoWeek(new Date(a.at)) !== week) continue
+    answered++
+    if (a.correct) correct++
+  }
+  return { answered, correct, points: correct * 10 + answered }
+}
+
+export function avgAnswerMs(data: UserData): number | null {
+  // session answers carry ms; aggregate over finished sessions
+  const xs: number[] = []
+  for (const s of data.sessions) for (const a of Object.values(s.answers)) if (a.ms) xs.push(a.ms)
+  if (data.current) for (const a of Object.values(data.current.answers)) if (a.ms) xs.push(a.ms)
+  if (!xs.length) return null
+  return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)
 }

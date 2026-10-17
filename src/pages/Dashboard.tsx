@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { notify } from '../reminders'
 import { useStore } from '../store'
 import { sessionsWord } from '../i18n'
-import { Button, Card, Badge, Bar, Icons, Ring, toneFor } from '../components/ui'
+import { Button, Card, Badge, Bar, Icons, Ring, toneFor, Modal } from '../components/ui'
 import type { Domain, Filters, Mode } from '../types'
 import { accuracyByDomain, applyFilters, createSession, dueReviewIds, overall, pct, readiness, wrongQuestionIds, PMP_FULL } from '../logic/engine'
 
@@ -47,6 +48,20 @@ export function Dashboard({ onStart }: { onStart: () => void }) {
             : { key: 'recoKeep', mode: 'practice', count: 10 }
   const target = data.profile.targetScore ?? 75
   const current = rd.avg ?? pct(ov)
+
+  // one browser notification per day when reviews are due (only if the user allowed notifications)
+  useEffect(() => {
+    if (!counts.review) return
+    const key = 'pmp.notified.' + new Date().toISOString().slice(0, 10)
+    try {
+      if (localStorage.getItem(key)) return
+      localStorage.setItem(key, '1')
+    } catch {
+      return
+    }
+    notify(t('notifTitle'), t('notifDue').replace('{n}', String(counts.review)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts.review])
 
   const [notice, setNotice] = useState<string | null>(null)
   const start = (mode: Mode, f: Filters) => {
@@ -188,6 +203,7 @@ function SetupModal({ mode, notice, onClose, onStart }: { mode: Mode; notice: st
   const [count, setCount] = useState(mode === 'exam' ? 30 : 10)
   const [minutes, setMinutes] = useState(38)
   const [full, setFull] = useState(false)
+  const [domInfo, setDomInfo] = useState(false)
   const available = mode === 'practice' || mode === 'exam' ? applyFilters(bank, { domains, sources: srcs }).length : null
   const fullCount = Math.min(PMP_FULL.questions, available ?? 0)
   const fullMinutes = Math.round((PMP_FULL.minutes * fullCount) / PMP_FULL.questions)
@@ -211,7 +227,15 @@ function SetupModal({ mode, notice, onClose, onStart }: { mode: Mode; notice: st
         {(mode === 'practice' || mode === 'exam') && (
           <>
             <div className="mt-5">
-              <div className="mb-1.5 text-sm font-medium">{t('domains')}</div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+                {t('domains')}
+                <button type="button" onClick={() => setDomInfo(true)} aria-label="info" className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-muted/60 text-[10px] font-bold text-muted hover:border-accent hover:text-accent">
+                  i
+                </button>
+              </div>
+              <Modal open={domInfo} onClose={() => setDomInfo(false)} title={t('domains')}>
+                <p className="text-sm leading-relaxed">{t('domainsInfo')}</p>
+              </Modal>
               <div className="flex flex-wrap gap-2">
                 {(['people', 'process', 'business'] as Domain[]).map((d) => (
                   <Chip key={d} active={domains.includes(d)} onClick={() => setDomains(toggle(domains, d))}>

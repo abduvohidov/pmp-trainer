@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { Button, Badge, Stem, Icons, Modal } from '../components/ui'
-import { finishSession, isExpired, recordAnswer, BREAK_MS } from '../logic/engine'
+import { Button, Badge, Stem, Icons, Modal, RichText } from '../components/ui'
+import { finishSession, isExpired, recordAnswer, BREAK_MS, localizeQuestion, PACE_MS } from '../logic/engine'
 import type { Answer, Question, Session } from '../types'
 
 /** One question: stem, image, options, feedback. Used inline and inside the modal. */
@@ -23,6 +23,7 @@ function QuestionView({
   onBookmark: () => void
 }) {
   const { t, lang } = useStore()
+  const L = localizeQuestion(q, lang)
   const stemRef = useRef<HTMLDivElement>(null)
   const [overflow, setOverflow] = useState(false)
   const [readOpen, setReadOpen] = useState(false)
@@ -41,10 +42,10 @@ function QuestionView({
   }, [q.id])
   const readLabel = lang === 'ru' ? 'Читать полностью' : 'Read in full'
   // keep the actual question (last line ending with "?") always visible under the scrolling case text
-  const lines = q.stem.trimEnd().split('\n')
+  const lines = L.stem.trimEnd().split('\n')
   const last = lines[lines.length - 1]?.trim() ?? ''
   const hasAsk = lines.length > 1 && /\?\s*$/.test(last)
-  const body = hasAsk ? lines.slice(0, -1).join('\n') : q.stem
+  const body = hasAsk ? lines.slice(0, -1).join('\n') : L.stem
   const ask = hasAsk ? last : ''
   return (
     <>
@@ -65,7 +66,7 @@ function QuestionView({
       {/* fixed-height stem: long case studies scroll inside, or open in a modal */}
       <div className="relative">
         <div ref={stemRef} className="stem-box max-h-40 overflow-y-auto pr-2 sm:max-h-48">
-          <Stem text={body} className="text-[15px] leading-relaxed sm:text-base" />
+          <Stem text={body} lang={lang} className="text-[15px] leading-relaxed sm:text-base" />
           {q.image && <img src={q.image} alt="" className="my-3 max-h-80 w-auto rounded-xl border border-line" />}
         </div>
         {overflow && (
@@ -77,16 +78,20 @@ function QuestionView({
           </>
         )}
       </div>
-      {ask && <p className="mt-3 text-[15px] font-semibold leading-snug sm:text-base">{ask}</p>}
+      {ask && (
+        <p className="mt-3 text-[15px] font-semibold leading-snug sm:text-base">
+          <RichText text={ask} lang={lang} />
+        </p>
+      )}
       <Modal open={readOpen} onClose={() => setReadOpen(false)} title={t('question')} wide>
         <div className="max-h-[70vh] overflow-y-auto pr-1">
-          <Stem text={q.stem} className="text-[15px] leading-relaxed sm:text-base" />
+          <Stem text={L.stem} lang={lang} className="text-[15px] leading-relaxed sm:text-base" />
           {q.image && <img src={q.image} alt="" className="my-3 max-h-96 w-auto rounded-xl border border-line" />}
         </div>
       </Modal>
 
       <div className="mt-4 space-y-2">
-        {q.options.map((o) => {
+        {L.options.map((o) => {
           const sel = selected.includes(o.label)
           let cls = 'border-line bg-surface hover:border-accent hover:bg-accent-soft/40'
           let pill = 'bg-surface-2 text-muted'
@@ -105,7 +110,9 @@ function QuestionView({
           return (
             <button key={o.label} onClick={() => onPick(o.label)} disabled={showFeedback} className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-snug transition ${cls}`}>
               <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${pill}`}>{o.label}</span>
-              <span>{o.text}</span>
+              <span>
+                <RichText text={o.text} lang={lang} />
+              </span>
             </button>
           )
         })}
@@ -114,18 +121,38 @@ function QuestionView({
       <Modal open={explOpen && !!answered} onClose={() => setExplOpen(false)} title={answered?.correct ? t('correct') : t('wrong')}>
         {answered && (
           <div className="space-y-3 text-sm">
-            <div className={`rounded-xl p-3 ${answered.correct ? 'bg-ok-soft' : 'bg-bad-soft'}`}>
+            <div className="rounded-xl bg-ok-soft p-3">
               <div className="text-xs font-medium text-muted">{t('correctAnswer')}</div>
-              {q.options.filter((o) => o.correct).map((o) => (
+              {L.options.filter((o) => o.correct).map((o) => (
                 <div key={o.label} className="mt-1 font-semibold">
                   {o.label}. {o.text}
                 </div>
               ))}
             </div>
-            {q.explanation && (
+            {L.explanation && (
               <p className="leading-relaxed">
                 <span className="font-semibold">{t('explanation')}: </span>
-                {q.explanation}
+                <RichText text={L.explanation} lang={lang} />
+              </p>
+            )}
+            {L.whyWrong.some(Boolean) && (
+              <div>
+                <div className="mb-1.5 text-xs font-semibold text-muted">{t('whyWrong')}</div>
+                <ul className="space-y-1.5">
+                  {L.options.map((o, i) =>
+                    o.correct || !L.whyWrong[i] ? null : (
+                      <li key={o.label} className={`flex gap-2 rounded-lg px-2.5 py-2 ${answered.selected.includes(o.label) ? 'bg-bad-soft' : 'bg-surface-2'}`}>
+                        <span className="shrink-0 font-bold">{o.label}.</span>
+                        <span className="text-ink/90">{L.whyWrong[i]}</span>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+            )}
+            {answered.ms !== undefined && (
+              <p className="text-xs text-muted">
+                {t('timeSpent')}: {Math.round(answered.ms / 1000)} {t('sec')} · {t('pace')}: {Math.round(PACE_MS / 1000)} {t('sec')}
               </p>
             )}
           </div>
@@ -157,6 +184,16 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
 
   const q = questions[idx]
   const answered = q ? s.answers[q.id] : undefined
+  const [qStart, setQStart] = useState(Date.now())
+  useEffect(() => {
+    setQStart(Date.now())
+  }, [idx])
+  // tick every second for the per-question timer in practice (exam already ticks via deadline)
+  useEffect(() => {
+    if (s.deadlineAt) return
+    const h = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(h)
+  }, [s.deadlineAt])
 
   useEffect(() => {
     setSelected(answered?.selected ?? [])
@@ -246,7 +283,8 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
   const submitFor = (target: Question, sel: string[]) => {
     if (!sel.length) return
     if (isExpired(s)) return finish()
-    update((d) => recordAnswer(d, d.current!, target, sel).data)
+    const ms = target.id === q?.id ? Date.now() - qStart : undefined
+    update((d) => recordAnswer(d, d.current!, target, sel, ms).data)
   }
 
   function finish() {
@@ -296,6 +334,12 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
           {left !== null && (
             <span className={`rounded-full px-3 py-1 text-sm font-semibold tabular-nums ${left < 5 * 60000 ? 'bg-bad-soft text-bad' : 'bg-surface-2 text-ink'}`}>
               {mm}:{ss.toString().padStart(2, '0')}
+            </span>
+          )}
+          {instant && !answered && (
+            <span title={t('paceHint')} className={`rounded-full px-3 py-1 text-sm font-semibold tabular-nums ${now - qStart > PACE_MS ? 'bg-warn-soft text-warn' : 'bg-surface-2 text-muted'}`}>
+              {Math.floor(Math.max(0, now - qStart) / 60000)}:{Math.floor((Math.max(0, now - qStart) % 60000) / 1000).toString().padStart(2, '0')}
+              <span className="ml-1 text-xs font-normal opacity-70">/ 1:17</span>
             </span>
           )}
           <button onClick={() => setListOpen(true)} className="flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-sm font-medium text-ink hover:bg-line" title={t('questionList')}>
@@ -377,7 +421,7 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
                 className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition hover:border-accent hover:bg-accent-soft/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-transparent ${i === idx ? 'border-accent' : 'border-line'}`}
               >
                 <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${pill}`}>{i + 1}</span>
-                <span className="line-clamp-2 flex-1 text-ink/90">{qq.stem.replace(/\|.*\|/g, ' ').replace(/\s+/g, ' ')}</span>
+                <span className="line-clamp-2 flex-1 text-ink/90">{localizeQuestion(qq, lang).stem.replace(/\|.*\|/g, ' ').replace(/\s+/g, ' ')}</span>
                 <span className="shrink-0 text-muted">{Icons.arrow()}</span>
               </button>
             )
