@@ -375,10 +375,24 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
         </div>
       </div>
 
-      <div className="mb-4 flex gap-1">
-        {questions.map((qq, i) => (
-          <button key={qq.id} onClick={() => !locked(i) && setIdx(i)} disabled={locked(i)} aria-label={`${i + 1}`} className={`h-1.5 min-w-1 flex-1 rounded-full transition-colors ${locked(i) ? 'opacity-40' : ''} ${i === idx ? 'bg-accent' : s.answers[qq.id] ? (instant ? (s.answers[qq.id].correct ? 'bg-ok' : 'bg-bad') : 'bg-accent/50') : 'bg-surface-2'}`} />
-        ))}
+      {/* clickable step bar: each segment is a question; tall hit area, bar grows on hover */}
+      <div className="mb-2 flex gap-1">
+        {questions.map((qq, i) => {
+          const a = s.answers[qq.id]
+          const color = i === idx ? 'bg-accent' : a ? (instant ? (a.correct ? 'bg-ok' : 'bg-bad') : 'bg-accent/50') : 'bg-surface-2'
+          return (
+            <button
+              key={qq.id}
+              onClick={() => !locked(i) && setIdx(i)}
+              disabled={locked(i)}
+              aria-label={`${t('question')} ${i + 1}`}
+              title={`${t('question')} ${i + 1}`}
+              className={`group min-w-1 flex-1 py-2 ${locked(i) ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+            >
+              <span className={`block h-1.5 w-full rounded-full transition-all group-hover:h-2.5 group-hover:brightness-110 ${color} ${i === idx ? 'ring-2 ring-accent/30' : ''}`} />
+            </button>
+          )
+        })}
       </div>
 
       <div className="card relative flex h-[min(620px,calc(100dvh-230px))] min-h-[420px] flex-col overflow-hidden">
