@@ -71,7 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const ws = weeklyStats(dataRef.current)
     if (backend.saveLeaderboard && ws.answered > 0) {
       backend
-        .saveLeaderboard({ uid: user.id, name: user.name, ...(user.photo ? { photo: user.photo } : {}), week: isoWeek(), answered: ws.answered, correct: ws.correct, points: ws.points, updatedAt: Date.now() })
+        .saveLeaderboard({ uid: user.id, name: dataRef.current.profile.name?.trim() || user.name, ...(user.photo ? { photo: user.photo } : {}), week: isoWeek(), answered: ws.answered, correct: ws.correct, points: ws.points, updatedAt: Date.now() })
         .catch(() => {})
     }
     backend.saveUserData(user, dataRef.current).then(

@@ -25,8 +25,13 @@ await shot('2-question')
 
 let correct = 0
 for (let i = 0; i < 5; i++) {
-  await page.locator('button:has(span:text-is("A"))').first().click()
-  await page.getByRole('button', { name: 'Ответить', exact: true }).click()
+  // the pace timer re-renders every second; retry the pick until "Ответить" is enabled
+  const answerBtn = page.getByRole('button', { name: 'Ответить', exact: true })
+  for (let k = 0; k < 5 && !(await answerBtn.isEnabled()); k++) {
+    await page.locator('button:has(span:text-is("A"))').first().click()
+    await page.waitForTimeout(150)
+  }
+  await answerBtn.click()
   await page.locator('button:has-text("Верно"), button:has-text("Неверно")').first().waitFor()
   if (i === 0) await shot('3-feedback')
   if (await page.locator('button:has-text("Верно"):not(:has-text("Неверно"))').count()) correct++
@@ -40,14 +45,14 @@ await shot('4-result')
 const expected = Math.round((correct / 5) * 100)
 if (parseInt(scoreText) !== expected) throw new Error(`score mismatch: ${scoreText} vs ${expected}`)
 
-await page.getByTitle('Профиль').click()
+await page.getByRole('button', { name: 'Профиль', exact: true }).click()
 await page.getByText(/По доменам/).waitFor()
 await page.getByText(/Последние 14 дней/).waitFor()
 await shot('5-profile')
 
 // persistence: reload and check answered count on dashboard
 await page.reload()
-await page.getByTitle('Профиль').click()
+await page.getByRole('button', { name: 'Профиль', exact: true }).click()
 await page.getByRole('button', { name: 'На главную' }).click()
 const answered = await page.locator('text=отвечено').locator('..').locator('.text-2xl').first().textContent()
 if (answered.trim() !== '5') throw new Error('persistence failed: ' + answered)

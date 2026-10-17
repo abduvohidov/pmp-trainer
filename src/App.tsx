@@ -42,7 +42,7 @@ function Shell() {
       {route.name === 'home' && <Dashboard onStart={() => nav({ name: 'run' })} />}
       {route.name === 'run' && (data.current ? <Runner onDone={(s) => nav({ name: 'result', session: s })} onExit={() => nav({ name: 'home' })} /> : <Dashboard onStart={() => nav({ name: 'run' })} />)}
       {route.name === 'result' && <Result session={route.session} onHome={() => nav({ name: 'home' })} onStart={() => nav({ name: 'run' })} />}
-      {route.name === 'profile' && <Profile onOpenSession={(s) => nav({ name: 'result', session: s })} onHome={() => nav({ name: 'home' })} />}
+      {route.name === 'profile' && <Profile onOpenSession={(s) => nav({ name: 'result', session: s })} onHome={() => nav({ name: 'home' })} onStart={() => nav({ name: 'run' })} />}
     </div>
   )
 }

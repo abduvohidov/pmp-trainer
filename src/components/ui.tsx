@@ -88,7 +88,8 @@ function TermChip({ term, text, lang }: { term: Term; text: string; lang: Lang }
 }
 
 /** Wrap glossary terms in a plain string. */
-export function RichText({ text, lang }: { text: string; lang: Lang }) {
+/** `passive`: inside a clickable answer option — terms show a hover hint only, clicks select the option. */
+export function RichText({ text, lang, passive = false }: { text: string; lang: Lang; passive?: boolean }) {
   const out: ReactNode[] = []
   let rest = text
   let k = 0
@@ -101,7 +102,16 @@ export function RichText({ text, lang }: { text: string; lang: Lang }) {
     }
     if (!best) break
     if (best.idx > 0) out.push(<span key={k++}>{rest.slice(0, best.idx)}</span>)
-    out.push(<TermChip key={k++} term={best.term} text={rest.slice(best.idx, best.idx + best.len)} lang={lang} />)
+    const word = rest.slice(best.idx, best.idx + best.len)
+    out.push(
+      passive ? (
+        <span key={k++} title={termText(best.term, lang)} className="cursor-help border-b border-dotted border-accent/70">
+          {word}
+        </span>
+      ) : (
+        <TermChip key={k++} term={best.term} text={word} lang={lang} />
+      ),
+    )
     rest = rest.slice(best.idx + best.len)
   }
   if (rest) out.push(<span key={k++}>{rest}</span>)

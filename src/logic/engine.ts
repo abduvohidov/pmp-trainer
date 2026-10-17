@@ -259,3 +259,22 @@ export function avgAnswerMs(data: UserData): number | null {
   if (!xs.length) return null
   return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)
 }
+
+/** Consecutive days with at least one answer, ending today (or yesterday if nothing yet today). */
+export function streakDays(data: UserData, now = new Date()): { days: number; today: boolean } {
+  const key = (t: number) => {
+    const d = new Date(t)
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  }
+  const set = new Set(data.attempts.map((a) => key(a.at)))
+  const d = new Date(now)
+  d.setHours(12, 0, 0, 0)
+  const today = set.has(key(d.getTime()))
+  if (!today) d.setDate(d.getDate() - 1)
+  let days = 0
+  while (set.has(key(d.getTime()))) {
+    days++
+    d.setDate(d.getDate() - 1)
+  }
+  return { days, today }
+}

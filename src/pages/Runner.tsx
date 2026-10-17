@@ -112,7 +112,7 @@ function QuestionView({
             <>
               <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${pill}`}>{o.label}</span>
               <span className="min-w-0 flex-1">
-                <RichText text={o.text} lang={lang} />
+                <RichText text={o.text} lang={lang} passive />
               </span>
             </>
           )
