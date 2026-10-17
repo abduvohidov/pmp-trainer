@@ -13,11 +13,11 @@ type Route = { name: 'home' } | { name: 'run' } | { name: 'result'; session: Ses
 function Shell() {
   const { user, ready, t, lang, setLang, saveWarning, data } = useStore()
   const [route, setRoute] = useState<Route>({ name: 'home' })
+  const [navId, setNavId] = useState(0)
 
   if (!ready) return <div className="flex min-h-screen items-center justify-center text-muted">{t('loading')}</div>
   if (!user) return <Login />
 
-  const [navId, setNavId] = useState(0)
   const nav = (r: Route) => {
     setRoute(r)
     setNavId((n) => n + 1) // re-open the profile on its list screen when the avatar is tapped again
