@@ -40,6 +40,10 @@ export interface Session {
   finishedAt: number | null
   scorePct: number | null
   filters?: Filters
+  /** Full PMP simulation: optional breaks after these question indexes (1-based count), 10 min each */
+  breaks?: { after: number; taken: boolean }[]
+  /** Index of the first question of the current section (questions before it are locked after a break) */
+  sectionStart?: number
 }
 
 export interface Filters {
@@ -48,6 +52,8 @@ export interface Filters {
   tags: string[]
   count: number
   minutes?: number
+  /** "Как на PMP": breaks after each third, sections lock after a break */
+  fullExam?: boolean
 }
 
 export interface Attempt {

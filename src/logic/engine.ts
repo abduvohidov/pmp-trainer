@@ -90,8 +90,14 @@ export function createSession(bank: Question[], data: UserData, mode: Mode, f: F
     finishedAt: null,
     scorePct: null,
     filters: f,
+    ...(mode === 'exam' && f.fullExam && chosen.length >= 30
+      ? { breaks: [Math.round(chosen.length / 3), Math.round((2 * chosen.length) / 3)].map((after) => ({ after, taken: false })), sectionStart: 0 }
+      : {}),
   }
 }
+
+export const BREAK_MS = 10 * 60_000
+export const PMP_FULL = { questions: 180, minutes: 230 }
 
 /** Apply one answer to the learning record: attempt log + Leitner box. */
 function track(data: UserData, s: Session, qid: string, answer: Answer): UserData {

@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { sessionsWord } from '../i18n'
 import { Button, Card, Badge, Bar, Icons, Ring, toneFor } from '../components/ui'
 import type { Domain, Filters, Mode } from '../types'
-import { accuracyByDomain, applyFilters, createSession, dueReviewIds, overall, pct, readiness, wrongQuestionIds } from '../logic/engine'
+import { accuracyByDomain, applyFilters, createSession, dueReviewIds, overall, pct, readiness, wrongQuestionIds, PMP_FULL } from '../logic/engine'
 
 const MODES: { mode: Mode; icon: keyof typeof Icons; color: string }[] = [
   { mode: 'practice', icon: 'practice', color: 'text-process bg-process/12' },
@@ -187,7 +187,12 @@ function SetupModal({ mode, notice, onClose, onStart }: { mode: Mode; notice: st
   const [srcs, setSrcs] = useState<string[]>([])
   const [count, setCount] = useState(mode === 'exam' ? 30 : 10)
   const [minutes, setMinutes] = useState(38)
+  const [full, setFull] = useState(false)
   const available = mode === 'practice' || mode === 'exam' ? applyFilters(bank, { domains, sources: srcs }).length : null
+  const fullCount = Math.min(PMP_FULL.questions, available ?? 0)
+  const fullMinutes = Math.round((PMP_FULL.minutes * fullCount) / PMP_FULL.questions)
+  const effCount = full ? fullCount : count
+  const effMinutes = full ? fullMinutes : minutes
   const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
   const m = MODES.find((x) => x.mode === mode)!
   const field = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-sm'
@@ -228,15 +233,25 @@ function SetupModal({ mode, notice, onClose, onStart }: { mode: Mode; notice: st
           </>
         )}
 
+        {mode === 'exam' && (
+          <button onClick={() => setFull((f) => !f)} className={`mt-4 flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${full ? 'border-accent bg-accent-soft/60' : 'border-line hover:border-accent/50'}`}>
+            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${full ? 'border-accent bg-accent text-accent-ink' : 'border-line'}`}>{full && Icons.check('h-3.5 w-3.5')}</span>
+            <span>
+              <span className="font-semibold">{t('fullExam')}</span>
+              <span className="mt-0.5 block text-xs text-muted">{t('fullExamDesc')}</span>
+              {full && fullCount < PMP_FULL.questions && <span className="mt-1.5 block text-xs text-warn">{t('fullExamShort').replace('{n}', String(fullCount)).replace('{m}', String(fullMinutes))}</span>}
+            </span>
+          </button>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-sm">
             <div className="mb-1.5 font-medium">{t('questionCount')}</div>
-            <input type="number" min={1} max={300} value={count} onChange={(e) => setCount(Math.max(1, +e.target.value || 1))} className={field} />
+            <input type="number" min={1} max={300} value={effCount} disabled={full} onChange={(e) => setCount(Math.max(1, +e.target.value || 1))} className={`${field} disabled:opacity-60`} />
           </label>
           {mode === 'exam' && (
             <label className="text-sm">
               <div className="mb-1.5 font-medium">{t('minutes')}</div>
-              <input type="number" min={1} max={300} value={minutes} onChange={(e) => setMinutes(Math.max(1, +e.target.value || 1))} className={field} />
+              <input type="number" min={1} max={300} value={effMinutes} disabled={full} onChange={(e) => setMinutes(Math.max(1, +e.target.value || 1))} className={`${field} disabled:opacity-60`} />
             </label>
           )}
         </div>
@@ -250,7 +265,7 @@ function SetupModal({ mode, notice, onClose, onStart }: { mode: Mode; notice: st
           <Button variant="ghost" onClick={onClose}>
             {Icons.x()}
           </Button>
-          <Button onClick={() => onStart({ domains, sources: srcs, tags: [], count, minutes: mode === 'exam' ? minutes : undefined })}>
+          <Button onClick={() => onStart({ domains, sources: srcs, tags: [], count: effCount, minutes: mode === 'exam' ? effMinutes : undefined, fullExam: mode === 'exam' && full })}>
             {t('start')} {Icons.arrow()}
           </Button>
         </div>

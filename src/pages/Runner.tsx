@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { Button, Badge, Stem, Icons, Modal } from '../components/ui'
-import { finishSession, isExpired, recordAnswer } from '../logic/engine'
+import { finishSession, isExpired, recordAnswer, BREAK_MS } from '../logic/engine'
 import type { Answer, Question, Session } from '../types'
 
 /** One question: stem, image, options, feedback. Used inline and inside the modal. */
@@ -148,7 +148,12 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
   const [modalIdx, setModalIdx] = useState<number | null>(null)
   const [modalSel, setModalSel] = useState<string[]>([])
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // full-exam breaks: offer -> (optional) resting with countdown -> lock previous section
+  const [breakOffer, setBreakOffer] = useState<number | null>(null) // index of break in s.breaks
+  const [restUntil, setRestUntil] = useState<number | null>(null)
   const instant = s.mode !== 'exam'
+  const sectionStart = s.sectionStart ?? 0
+  const locked = (i: number) => i < sectionStart
 
   const q = questions[idx]
   const answered = q ? s.answers[q.id] : undefined
@@ -172,9 +177,52 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
   }, [s.deadlineAt])
 
   useEffect(() => {
+    if (restUntil !== null) return // timer paused during a break
     if (s.deadlineAt && isExpired(s, now)) finish()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now])
+
+  // when the user moves onto the first question after a section boundary, offer the break
+  useEffect(() => {
+    if (!s.breaks) return
+    const bi = s.breaks.findIndex((b) => !b.taken && idx === b.after)
+    if (bi >= 0 && breakOffer === null && restUntil === null) setBreakOffer(bi)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, s.breaks])
+
+  // during rest: push the exam deadline forward second by second (max 10 min), end rest automatically
+  useEffect(() => {
+    if (restUntil === null) return
+    if (now >= restUntil) {
+      endBreak()
+      return
+    }
+    update((d) => (d.current && d.current.deadlineAt ? { ...d, current: { ...d.current, deadlineAt: d.current.deadlineAt + 1000 } } : d))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now])
+
+  function lockSection(bi: number) {
+    update((d) => {
+      const c = d.current
+      if (!c || !c.breaks) return d
+      const breaks = c.breaks.map((b, i) => (i === bi ? { ...b, taken: true } : b))
+      return { ...d, current: { ...c, breaks, sectionStart: c.breaks[bi].after } }
+    })
+  }
+  function startBreak() {
+    if (breakOffer === null) return
+    lockSection(breakOffer)
+    setRestUntil(Date.now() + BREAK_MS)
+    setBreakOffer(null)
+  }
+  function skipBreak() {
+    if (breakOffer === null) return
+    lockSection(breakOffer)
+    setBreakOffer(null)
+  }
+  function endBreak() {
+    setRestUntil(null)
+  }
 
   if (!q) {
     return (
@@ -264,7 +312,7 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
 
       <div className="mb-4 flex gap-1">
         {questions.map((qq, i) => (
-          <button key={qq.id} onClick={() => setIdx(i)} aria-label={`${i + 1}`} className={`h-1.5 min-w-1 flex-1 rounded-full transition-colors ${i === idx ? 'bg-accent' : s.answers[qq.id] ? (instant ? (s.answers[qq.id].correct ? 'bg-ok' : 'bg-bad') : 'bg-accent/50') : 'bg-surface-2'}`} />
+          <button key={qq.id} onClick={() => !locked(i) && setIdx(i)} disabled={locked(i)} aria-label={`${i + 1}`} className={`h-1.5 min-w-1 flex-1 rounded-full transition-colors ${locked(i) ? 'opacity-40' : ''} ${i === idx ? 'bg-accent' : s.answers[qq.id] ? (instant ? (s.answers[qq.id].correct ? 'bg-ok' : 'bg-bad') : 'bg-accent/50') : 'bg-surface-2'}`} />
         ))}
       </div>
 
@@ -276,7 +324,7 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-2">
-        <Button variant="ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}>
+        <Button variant="ghost" onClick={() => setIdx((i) => Math.max(sectionStart, i - 1))} disabled={idx <= sectionStart}>
           {t('prev')}
         </Button>
         <div className="flex gap-2">
@@ -320,11 +368,13 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
             return (
               <button
                 key={qq.id}
+                disabled={locked(i)}
+                title={locked(i) ? t('sectionLocked') : undefined}
                 onClick={() => {
                   setListOpen(false)
                   setModalIdx(i)
                 }}
-                className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition hover:border-accent hover:bg-accent-soft/40 ${i === idx ? 'border-accent' : 'border-line'}`}
+                className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition hover:border-accent hover:bg-accent-soft/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-transparent ${i === idx ? 'border-accent' : 'border-line'}`}
               >
                 <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${pill}`}>{i + 1}</span>
                 <span className="line-clamp-2 flex-1 text-ink/90">{qq.stem.replace(/\|.*\|/g, ' ').replace(/\s+/g, ' ')}</span>
@@ -378,6 +428,37 @@ export function Runner({ onDone, onExit }: { onDone: (s: Session) => void; onExi
             <QuestionView q={mq} selected={modalSel} answered={mAnswered} showFeedback={instant && !!mAnswered} onPick={pickFor(mq, modalSel, setModalSel)} bookmarked={data.bookmarks.includes(mq.id)} onBookmark={toggleBookmark(mq)} />
           </div>
         )}
+      </Modal>
+
+      {/* break offer at a section boundary */}
+      <Modal
+        open={breakOffer !== null}
+        onClose={skipBreak}
+        title={t('breakTitle')}
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="ghost" onClick={skipBreak}>
+              {t('breakSkip')}
+            </Button>
+            <Button onClick={startBreak}>{t('breakStart')}</Button>
+          </div>
+        }
+      >
+        <p className="text-sm font-medium">{t('breakOffer').replace('{k}', String((breakOffer ?? 0) + 1))}</p>
+        <p className="mt-2 text-sm text-muted">{t('breakText')}</p>
+      </Modal>
+
+      {/* resting */}
+      <Modal open={restUntil !== null} onClose={() => {}} title={t('breakTitle')}>
+        <div className="py-4 text-center">
+          <div className="text-5xl font-extrabold tabular-nums tracking-tight text-accent">
+            {restUntil !== null ? `${Math.floor(Math.max(0, restUntil - now) / 60000)}:${Math.floor((Math.max(0, restUntil - now) % 60000) / 1000).toString().padStart(2, '0')}` : ''}
+          </div>
+          <p className="mt-3 text-sm text-muted">{t('breakText')}</p>
+          <Button className="mt-5" onClick={endBreak}>
+            {t('breakContinue')}
+          </Button>
+        </div>
       </Modal>
 
       {/* finish confirmation */}
