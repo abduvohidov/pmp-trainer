@@ -46,6 +46,7 @@ const expected = Math.round((correct / 5) * 100)
 if (parseInt(scoreText) !== expected) throw new Error(`score mismatch: ${scoreText} vs ${expected}`)
 
 await page.getByRole('button', { name: 'Профиль', exact: true }).click()
+await page.getByRole('button', { name: /Статистика/ }).click()
 await page.getByText(/По доменам/).waitFor()
 await page.getByText(/Последние 14 дней/).waitFor()
 await shot('5-profile')

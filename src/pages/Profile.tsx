@@ -73,7 +73,6 @@ export function Profile({ onOpenSession, onHome, onStart }: { onOpenSession: (s:
   const { t, user, data, bank, update, signOut, backend, lang, setLang } = useStore()
   const tx = (ru: string, en: string) => (lang === 'ru' ? ru : en)
   const [section, setSection] = useState<Section | null>(null)
-  const shown: Section = section ?? 'stats'
   const [theme, setThemeState] = useState<Theme>(getTheme)
   const [saved, setSaved] = useState(false)
   const [leaders, setLeaders] = useState<LeaderEntry[] | null>(null)
@@ -216,18 +215,18 @@ export function Profile({ onOpenSession, onHome, onStart }: { onOpenSession: (s:
       )}
 
       <Group title={tx('Моя подготовка', 'My preparation')}>
-        <Row icon={IC.stats} tile="bg-process" label={titles.stats} value={ov.total ? `${ov.total} · ${pct(ov)}%` : '—'} onClick={() => open('stats')} active={shown === 'stats'} />
-        <Row icon={IC.goal} tile="bg-accent-2" label={titles.goal} value={data.profile.examDate ? `${data.profile.targetCert ?? 'PMP'} · ${fmtDate(data.profile.examDate)} · ${target}%` : tx('не задана', 'not set')} onClick={() => open('goal')} active={section === 'goal'} />
-        <Row icon={IC.history} tile="bg-business" label={titles.history} value={`${data.sessions.length} ${sessionsWord(lang, data.sessions.length)}`} onClick={() => open('history')} active={section === 'history'} />
-        <Row icon={IC.saved} tile="bg-people" label={titles.saved} value={`${mistakes.length} · ${bookmarks.length}`} onClick={() => open('saved')} active={section === 'saved'} />
+        <Row icon={IC.stats} tile="bg-process" label={titles.stats} value={ov.total ? `${ov.total} · ${pct(ov)}%` : '—'} onClick={() => open('stats')}  />
+        <Row icon={IC.goal} tile="bg-accent-2" label={titles.goal} value={data.profile.examDate ? `${data.profile.targetCert ?? 'PMP'} · ${fmtDate(data.profile.examDate)} · ${target}%` : tx('не задана', 'not set')} onClick={() => open('goal')} />
+        <Row icon={IC.history} tile="bg-business" label={titles.history} value={`${data.sessions.length} ${sessionsWord(lang, data.sessions.length)}`} onClick={() => open('history')} />
+        <Row icon={IC.saved} tile="bg-people" label={titles.saved} value={`${mistakes.length} · ${bookmarks.length}`} onClick={() => open('saved')} />
       </Group>
 
       <Group title={tx('Сообщество', 'Community')}>
-        <Row icon={IC.leaders} tile="bg-warn" label={titles.leaders} value={myRank ? tx(`${myRank}-е место`, `#${myRank}`) : '—'} onClick={() => open('leaders')} active={section === 'leaders'} />
+        <Row icon={IC.leaders} tile="bg-warn" label={titles.leaders} value={myRank ? tx(`${myRank}-е место`, `#${myRank}`) : '—'} onClick={() => open('leaders')} />
       </Group>
 
       <Group title={tx('Настройки', 'Settings')}>
-        <Row icon={IC.reminders} tile="bg-bad" label={titles.reminders} value={notifState === 'granted' ? `${remTime} · ${tx('вкл', 'on')}` : remTime} onClick={() => open('reminders')} active={section === 'reminders'} />
+        <Row icon={IC.reminders} tile="bg-bad" label={titles.reminders} value={notifState === 'granted' ? `${remTime} · ${tx('вкл', 'on')}` : remTime} onClick={() => open('reminders')} />
         <Row icon={IC.lang} tile="bg-accent" label={tx('Язык', 'Language')} value={lang === 'ru' ? 'Русский' : 'English'} onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')} chevron={false} />
         <Row
           icon={IC.theme}
@@ -241,7 +240,7 @@ export function Profile({ onOpenSession, onHome, onStart }: { onOpenSession: (s:
           }}
           chevron={false}
         />
-        <Row icon={IC.export} tile="bg-ok" label={titles.export} value="JSON · CSV" onClick={() => open('export')} active={section === 'export'} />
+        <Row icon={IC.export} tile="bg-ok" label={titles.export} value="JSON · CSV" onClick={() => open('export')} />
       </Group>
 
       <Group>
@@ -507,19 +506,21 @@ export function Profile({ onOpenSession, onHome, onStart }: { onOpenSession: (s:
   const peekL = peek ? localizeQuestion(peek, lang) : null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="md:grid md:grid-cols-[340px_1fr] md:items-start md:gap-6">
-        <div className={section ? 'hidden md:block' : ''}>{menu}</div>
-        <div className={section ? '' : 'hidden md:block'}>
+    <div className="mx-auto max-w-2xl px-4 py-6">
+      {/* list screen; a tap opens the section as its own page (Telegram-style) */}
+      {section === null ? (
+        menu
+      ) : (
+        <div>
           <div className="mb-4 flex items-center gap-2">
-            <button onClick={() => setSection(null)} className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-accent hover:bg-surface-2 md:hidden" aria-label={tx('Назад', 'Back')}>
-              {IC.back}
+            <button onClick={() => setSection(null)} className="-ml-2 flex items-center gap-0.5 rounded-full py-1.5 pr-3 pl-1.5 text-sm font-semibold text-accent hover:bg-surface-2" aria-label={tx('Назад', 'Back')}>
+              {IC.back} {t('profile')}
             </button>
-            <h2 className="text-xl font-bold">{titles[shown]}</h2>
           </div>
-          {content[shown]}
+          <h2 className="mb-4 text-2xl font-bold">{titles[section]}</h2>
+          {content[section]}
         </div>
-      </div>
+      )}
 
       <Modal
         open={!!peek}
