@@ -53,12 +53,6 @@ function QuestionView({
         <Badge tone={q.domain}>{t(q.domain)}</Badge>
         <span>{q.source}</span>
         {q.type === 'multiple' && <Badge tone="warn">multiple</Badge>}
-        {showFeedback && answered && (
-          <button onClick={() => setExplOpen(true)} className={`feedback flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition hover:brightness-95 ${answered.correct ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad'}`} title={t('explanation')}>
-            {answered.correct ? Icons.check('h-4 w-4') : Icons.x('h-4 w-4')} {answered.correct ? t('correct') : t('wrong')}
-            <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-extrabold">i</span>
-          </button>
-        )}
         <button onClick={onBookmark} className={`ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${bookmarked ? 'bg-warn-soft text-warn' : 'text-muted hover:bg-surface-2 hover:text-ink'}`}>
           {Icons.star(undefined, bookmarked)} {bookmarked ? t('bookmarked') : t('bookmark')}
         </button>
@@ -107,12 +101,39 @@ function QuestionView({
             cls = 'border-accent bg-accent-soft ring-2 ring-accent/30'
             pill = 'bg-accent text-accent-ink'
           }
-          return (
-            <button key={o.label} onClick={() => onPick(o.label)} disabled={showFeedback} className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-snug transition ${cls}`}>
+          // after answering: badge "✓ Верно / ✗ Неверно ⓘ" on the picked option, "Правильный ответ ⓘ" on the key when missed
+          const picked = !!answered && answered.selected.includes(o.label)
+          let badge: { ok: boolean; label: string } | null = null
+          if (showFeedback && answered) {
+            if (picked) badge = { ok: o.correct, label: o.correct ? t('correct') : t('wrong') }
+            else if (o.correct) badge = { ok: true, label: t('correctAnswer') }
+          }
+          const inner = (
+            <>
               <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${pill}`}>{o.label}</span>
-              <span>
+              <span className="min-w-0 flex-1">
                 <RichText text={o.text} lang={lang} />
               </span>
+            </>
+          )
+          const rowCls = `flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-snug transition ${cls}`
+          if (showFeedback) {
+            return (
+              <div key={o.label} className={rowCls}>
+                {inner}
+                {badge && (
+                  <button onClick={() => setExplOpen(true)} title={t('explanation')} className={`feedback -my-1 -mr-1 flex shrink-0 items-center gap-1 self-center rounded-full px-2.5 py-1 text-xs font-bold transition hover:brightness-95 ${badge.ok ? 'bg-ok text-white' : 'bg-bad text-white'}`}>
+                    {badge.ok ? Icons.check('h-3.5 w-3.5') : Icons.x('h-3.5 w-3.5')}
+                    <span className="hidden sm:inline">{badge.label}</span>
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-extrabold">i</span>
+                  </button>
+                )}
+              </div>
+            )
+          }
+          return (
+            <button key={o.label} onClick={() => onPick(o.label)} className={rowCls}>
+              {inner}
             </button>
           )
         })}
